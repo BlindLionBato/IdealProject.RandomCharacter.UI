@@ -5,6 +5,14 @@ terraform {
       version = "~> 2.4"
     }
   }
+
+  backend "s3" {
+    bucket         = "ideal-project-terraform-states"
+    key            = "dev/random-character-ui.tfstate"
+    region         = "eu-west-1"
+    encrypt        = true
+    dynamodb_table = "terraform-locks"
+  }
 }
 
 provider "aws" {
