@@ -1,62 +1,52 @@
+terraform {
+  required_providers {
+    archive = {
+      source  = "hashicorp/archive"
+      version = "~> 2.4"
+    }
+  }
+}
+
 provider "aws" {
 
 }
 
-resource "aws_instance" "my_server" {
-  ami           = "ami-0343a21cd4b9d8ee8"
-  instance_type = "t2.micro"
-  key_name      = "IdealProject.EC2.KeyPair"
-  vpc_security_group_ids = [aws_security_group.sg_my_server.id]
-  user_data = <<EOF
-#!/bin/bash
-sudo dnf -y update --refresh
-sudo dnf install -y httpd mod_ssl openssl
-
-openssl req -x509 -nodes -days 365 \
--newkey rsa:2048 \
--keyout /etc/httpd/conf/ssl.key \
--out /etc/httpd/conf/ssl.crt \
--subj "/C=US/ST=State/L=City/O=Organization/CN=localhost"
-
-sed -i 's|SSLCertificateFile.*|SSLCertificateFile /etc/httpd/conf/ssl.crt|' /etc/httpd/conf.d/ssl.conf
-sed -i 's|SSLCertificateKeyFile.*|SSLCertificateKeyFile /etc/httpd/conf/ssl.key|' /etc/httpd/conf.d/ssl.conf
-
-echo "<h2>Hello World!</h2>" | sudo tee /var/www/html/index.html
-
-sudo systemctl enable httpd
-sudo systemctl start httpd
-EOF
+resource "aws_instance" "random_character_server" {
+  ami                  = "ami-0343a21cd4b9d8ee8"
+  instance_type        = "t2.micro"
+  key_name             = "IdealProject.EC2.KeyPair"
+  vpc_security_group_ids = [aws_security_group.ec2_instance_security_group.id]
+  iam_instance_profile = aws_iam_instance_profile.ec2_instance_profile.name
+  user_data            = file("./terraform-data/ec2/bootstrap.sh")
 }
 
-resource "aws_security_group" "sg_my_server" {
-  name        = "HTTP Security Group"
-  description = "MyServer Security Group"
+resource "aws_s3_bucket" "artefacts_s3_bucket" {
+  bucket = "ideal-project-random-character-ui-artefacts"
+}
 
-  ingress {
-    from_port = 80
-    to_port   = 80
-    protocol  = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+resource "aws_s3_bucket_ownership_controls" "artefacts_s3_bucket_ownership" {
+  bucket = aws_s3_bucket.artefacts_s3_bucket.id
 
-  ingress {
-    from_port = 22
-    to_port   = 22
-    protocol  = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+  rule {
+    object_ownership = "BucketOwnerPreferred"
   }
+}
 
-  ingress {
-    from_port = 443
-    to_port   = 443
-    protocol  = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+resource "aws_s3_bucket_acl" "artefacts_s3_bucket_acl" {
+  depends_on = [aws_s3_bucket_ownership_controls.artefacts_s3_bucket_ownership]
 
-  egress {
-    from_port = 0
-    to_port   = 0
-    protocol  = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+  bucket = aws_s3_bucket.artefacts_s3_bucket.id
+  acl    = "private"
+}
+
+resource "archive_file" "random_character_ui_artefact" {
+  type        = "zip"
+  source_dir = "./dist"
+  output_path = "./dist.zip"
+}
+
+resource "aws_s3_object" "random_character_ui_artefact_s3_object" {
+  bucket = aws_s3_bucket.artefacts_s3_bucket.bucket
+  key    = "dist.zip"
+  source = archive_file.random_character_ui_artefact.output_path
 }
