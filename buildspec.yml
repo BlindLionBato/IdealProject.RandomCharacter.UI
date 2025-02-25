@@ -1,0 +1,29 @@
+version: 0.2
+
+env:
+  secrets-manager:
+    DOCKER_CREDENTIALS: arn:aws:secretsmanager:eu-west-1:756244214202:secret:Docker-Hb7rvt
+
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin 756244214202.dkr.ecr.eu-west-1.amazonaws.com
+      - echo Logging in to Docker Hub...
+      - echo $DOCKER_CREDENTIALS | jq -r '.password' | docker login -u $(echo $DOCKER_CREDENTIALS | jq -r '.username') --password-stdin
+
+  build:
+    commands:
+      - echo Build started on `date`
+      - echo Building the Docker image...
+      - docker build -t $REPOSITORY_NAME .
+      - docker tag $REPOSITORY_NAME:latest 756244214202.dkr.ecr.eu-west-1.amazonaws.com/$REPOSITORY_NAME:latest
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - echo Pushing the Docker image...
+      - docker push 756244214202.dkr.ecr.eu-west-1.amazonaws.com/$REPOSITORY_NAME:latest
+
+artifacts:
+  files:
+    - '**/*'
