@@ -1,6 +1,6 @@
 resource "aws_codebuild_project" "random_character_ui" {
   name         = "random-character-ui"
-  service_role = aws_iam_role.codebuild.arn
+  service_role = module.security.roles.codebuild.arn
 
   artifacts {
     type      = "S3"
@@ -38,7 +38,7 @@ resource "aws_codedeploy_app" "random_character_ui" {
 resource "aws_codedeploy_deployment_group" "random_character_ui" {
   app_name              = aws_codedeploy_app.random_character_ui.name
   deployment_group_name = "IdealProject.RandomCharacter.UI"
-  service_role_arn      = aws_iam_role.codedeploy.arn
+  service_role_arn      = module.security.roles.codedeploy.arn
 
   ec2_tag_set {
     ec2_tag_filter {
@@ -58,7 +58,7 @@ resource "aws_codedeploy_deployment_group" "random_character_ui" {
 
 resource "aws_codepipeline" "random_character_ui" {
   name     = "random-character-ui"
-  role_arn = aws_iam_role.codepipeline.arn
+  role_arn = module.security.roles.codepipeline.arn
 
   artifact_store {
     type     = "S3"

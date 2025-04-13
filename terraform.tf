@@ -18,3 +18,7 @@ terraform {
 provider "aws" {
 
 }
+
+module "security" {
+  source = "git@github.com:BlindLionBato/Terraform.AWS.Security.git"
+}
