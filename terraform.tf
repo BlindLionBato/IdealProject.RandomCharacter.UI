@@ -19,6 +19,10 @@ provider "aws" {
 
 }
 
-module "security" {
-  source = "git@github.com:BlindLionBato/Terraform.AWS.Security.git"
+locals {
+  project_name = "Test"
+}
+
+module "statements" {
+  source = "git@github.com:BlindLionBato/Terraform.AWS.Security.Statements.git"
 }

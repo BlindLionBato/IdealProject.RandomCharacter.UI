@@ -1,6 +1,6 @@
 resource "aws_codebuild_project" "random_character_ui" {
   name         = "random-character-ui"
-  service_role = module.security.roles.codebuild.arn
+  service_role = module.codebuild_role.arn
 
   artifacts {
     type      = "S3"
@@ -31,14 +31,14 @@ resource "aws_codebuild_project" "random_character_ui" {
 }
 
 resource "aws_codedeploy_app" "random_character_ui" {
-  name = "random-character-ui"
+  name             = "random-character-ui"
   compute_platform = "Server"
 }
 
 resource "aws_codedeploy_deployment_group" "random_character_ui" {
   app_name              = aws_codedeploy_app.random_character_ui.name
   deployment_group_name = "IdealProject.RandomCharacter.UI"
-  service_role_arn      = module.security.roles.codedeploy.arn
+  service_role_arn      = module.codedeploy_role.arn
 
   ec2_tag_set {
     ec2_tag_filter {
@@ -52,13 +52,13 @@ resource "aws_codedeploy_deployment_group" "random_character_ui" {
 
   auto_rollback_configuration {
     enabled = true
-    events  = ["DEPLOYMENT_FAILURE"]
+    events = ["DEPLOYMENT_FAILURE"]
   }
 }
 
 resource "aws_codepipeline" "random_character_ui" {
   name     = "random-character-ui"
-  role_arn = module.security.roles.codepipeline.arn
+  role_arn = module.codepipeline_role.arn
 
   artifact_store {
     type     = "S3"
@@ -105,12 +105,12 @@ resource "aws_codepipeline" "random_character_ui" {
     name = "Deploy"
 
     action {
-      name            = "Deploy_To_EC2"
-      category        = "Deploy"
-      owner           = "AWS"
-      provider        = "CodeDeploy"
+      name     = "Deploy_To_EC2"
+      category = "Deploy"
+      owner    = "AWS"
+      provider = "CodeDeploy"
       input_artifacts = ["build_output"]
-      version         = "1"
+      version  = "1"
 
       configuration = {
         ApplicationName     = aws_codedeploy_app.random_character_ui.name
