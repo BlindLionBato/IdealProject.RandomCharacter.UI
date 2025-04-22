@@ -1,0 +1,65 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: write
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '23'
+
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
+      - name: Increment version
+        id: increment_version
+        run: ./scripts/increment-version.sh
+
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: arn:aws:iam::756244214202:role/IdealProject.RandomCharacter.UI_GitHub_Access_Role
+          aws-region: eu-west-1
+
+
+      - name: Commit version bump
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git commit -am "Bump version to $NEW_VERSION"
+          git push origin HEAD
+
+      - name: Log in to Amazon ECR
+        id: ecr_login
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build and tag Docker image
+        run: |
+          IMAGE_NAME=random-character-ui:${{ env.NEW_VERSION }}
+          docker build -t $IMAGE_NAME .
+          aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin 756244214202.dkr.ecr.eu-west-1.amazonaws.com
+          docker tag $IMAGE_NAME 756244214202.dkr.ecr.eu-west-1.amazonaws.com/$IMAGE_NAME
+
+      - name: Push Docker image to ECR
+        run: |
+          IMAGE_NAME=random-character-ui:${{ env.NEW_VERSION }}
+          docker push 756244214202.dkr.ecr.eu-west-1.amazonaws.com/$IMAGE_NAME

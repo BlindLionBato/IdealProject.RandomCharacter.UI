@@ -7,8 +7,8 @@ terraform {
   }
 
   backend "s3" {
-    bucket         = "ideal-project-terraform-states"
-    key            = "dev/random-character-ui.tfstate"
+    bucket         = "blb-terraform-states"
+    key            = "ideal-project/random-character-ui/dev/tfstate"
     region         = "eu-west-1"
     encrypt        = true
     dynamodb_table = "terraform-locks"
@@ -20,9 +20,14 @@ provider "aws" {
 }
 
 locals {
-  project_name = "Test"
+  organization_name = "BlindLionBato"
+  project_name      = "IdealProject.RandomCharacter.UI"
 }
 
 module "statements" {
   source = "git@github.com:BlindLionBato/Terraform.AWS.Security.Statements.git"
+}
+
+module "global" {
+  source = "git@github.com:BlindLionBato/Terraform.Infrastructure.Global.git"
 }
