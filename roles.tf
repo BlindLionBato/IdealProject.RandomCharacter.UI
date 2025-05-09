@@ -1,15 +1,3 @@
-module "ec2_role" {
-  source = "git@github.com:BlindLionBato/Terraform.AWS.Security.CustomRole.git"
-  project_name = local.project_name
-  service_name = "ec2"
-  statements = [
-    module.statements.s3_read_access,
-    module.statements.cloudwatch_full_access,
-    module.statements.ecr_read_access,
-    module.statements.ssm_full_access
-  ]
-}
-
 module "github_role" {
   source = "git@github.com:BlindLionBato/Terraform.AWS.Security.CustomRole.git"
   project_name = local.project_name
@@ -34,6 +22,10 @@ module "github_role" {
     module.statements.ecr_read_access,
     module.statements.ecr_write_access,
     module.statements.ec2_read_access,
-    module.statements.ssm_full_access
+    module.statements.ssm_full_access,
+    module.statements.eks_full_access,
+    module.statements.ecr_full_access,
+    module.statements.autoscaling_full_access,
+    module.statements.iam_pass_access
   ]
 }

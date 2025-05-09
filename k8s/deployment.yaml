@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-project
+  labels:
+    app: web-project
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web-project
+  template:
+    metadata:
+      labels:
+        app: web-project
+    spec:
+      containers:
+        - name: web-project
+          image: <your_aws_account_id>.dkr.ecr.us-east-1.amazonaws.com/web-project:latest
+          ports:
+            - containerPort: 3000
