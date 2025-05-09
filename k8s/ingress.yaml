@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: random-character-ingress
+  namespace: default
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:eu-west-1:756244214202:certificate/beb572cd-3d85-4e5b-b239-ed84960452c1"
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    alb.ingress.kubernetes.io/subnets: "RandomCharacter-EKS-VPC-public-eu-west-1a,RandomCharacter-EKS-VPC-public-eu-west-1b,RandomCharacter-EKS-VPC-public-eu-west-1c"
+    external-dns.alpha.kubernetes.io/hostname: "dev.random-character.com"
+spec:
+  ingressClassName: alb
+  rules:
+    - host: dev.random-character.org
+      http:
+        paths:
+          - path: /my-web-app
+            pathType: Prefix
+            backend:
+              service:
+                name: random-character-ui
+                port:
+                  number: 8080

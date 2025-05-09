@@ -36,7 +36,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v3
         with:
-          role-to-assume: arn:aws:iam::756244214202:role/IdealProject.RandomCharacter.UI_GitHub_Access_Role
+          role-to-assume: arn:aws:iam::756244214202:role/RandomCharacter_GitHub_Access_Role
           aws-region: eu-west-1
 
       - name: Commit version bump
@@ -72,21 +72,17 @@ jobs:
         run: |
           LATEST_TAG=756244214202.dkr.ecr.eu-west-1.amazonaws.com/random-character-ui:latest
           docker push $LATEST_TAG
-
-      - name: Run Docker image on EC2 via SSM
-        run: |
-          INSTANCE_ID=$(aws ec2 describe-instances \
-            --filters "Name=tag:Name,Values=IdealProject.RandomCharacter.UI" "Name=instance-state-name,Values=running" \
-            --query "Reservations[0].Instances[0].InstanceId" --output text)
-
-          aws ssm send-command \
-            --instance-ids $INSTANCE_ID \
-            --document-name "AWS-RunShellScript" \
-            --comment "Deploy the updated Docker container and restart nginx" \
-            --parameters commands='[
-              "aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin 756244214202.dkr.ecr.eu-west-1.amazonaws.com",
-              "docker ps -q -f name=random-character-ui | grep -q . && docker stop random-character-ui && docker rm random-character-ui",
-              "docker pull 756244214202.dkr.ecr.eu-west-1.amazonaws.com/random-character-ui:latest",
-              "docker run -d --name random-character-ui -p 8080:80 756244214202.dkr.ecr.eu-west-1.amazonaws.com/random-character-ui:latest"
-            ]' \
-            --region eu-west-1
+          
+#      - name: Install kubectl
+#        run: |
+#          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+#          chmod +x kubectl
+#          sudo mv kubectl /usr/local/bin/
+#
+#      - name: Update kubeconfig for Amazon EKS
+#        run: aws eks update-kubeconfig --name RandomCharacter-EKS --region eu-west-1
+#
+#      - name: Deploy to Amazon EKS
+#        run: |
+#          kubectl apply -f k8s/deployment.yaml
+#          kubectl apply -f k8s/service.yaml

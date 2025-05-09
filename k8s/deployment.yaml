@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: random-character-ui
+  labels:
+    app: random-character-ui
+spec:
+  # TODO: Use number of availability zones. Add fix for spreading between availability zones.
+  replicas: 3
+  selector:
+    matchLabels:
+      app: random-character-ui
+  template:
+    metadata:
+      labels:
+        app: random-character-ui
+    spec:
+      containers:
+        - name: random-character-ui
+          image: 756244214202.dkr.ecr.eu-west-1.amazonaws.com/random-character-ui:latest
+          env:
+            - name: BASE_PATH
+              value: "/my-web-app"
+          ports:
+            - containerPort: 8080

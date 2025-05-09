@@ -1,0 +1,20 @@
+server {
+    listen 8080;
+
+    location {{BASE_PATH}} {
+        alias /usr/share/nginx/html/index.html;
+        sub_filter '<base href="/">' '<base href="{{BASE_PATH}}/">';
+        sub_filter_once on;
+    }
+
+    location {{BASE_PATH}}/ {
+        alias /usr/share/nginx/html/;
+        sub_filter '<base href="/">' '<base href="{{BASE_PATH}}/">';
+        sub_filter_once on;
+    }
+
+    location / {
+        root /usr/share/nginx/html;
+        try_files $uri /index.html;
+    }
+}

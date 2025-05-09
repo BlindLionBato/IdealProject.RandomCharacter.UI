@@ -19,5 +19,9 @@ RUN dnf -y install nginx
 RUN mkdir -p /usr/share/nginx/html
 
 COPY --from=build /dist /usr/share/nginx/html
+COPY --from=build /configs/nginx.conf.template /etc/nginx/conf.d/nginx.conf.template
+COPY --from=build /scripts/entrypoint.sh /entrypoint.sh
 
-CMD ["nginx", "-g", "daemon off;"]
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
+#CMD ["nginx", "-g", "daemon off;"]
