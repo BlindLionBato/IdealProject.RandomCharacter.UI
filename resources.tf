@@ -1,75 +1,101 @@
-resource "aws_route53_record" "main_record" {
-  zone_id = data.aws_route53_zone.main.zone_id
-  name    = "random-character.org"
-  type    = "A"
+# EKS Cluster
+module "eks" {
+  source  = "terraform-aws-modules/eks/aws"
+  version = "20.36.0"
 
-  alias {
-    name                   = aws_lb.main.dns_name
-    zone_id                = aws_lb.main.zone_id
-    evaluate_target_health = true
+  cluster_name    = local.cluster_name
+  cluster_version = "1.32"
+
+  vpc_id     = module.vpc.vpc_id
+  subnet_ids = module.vpc.public_subnets
+
+  eks_managed_node_groups = {}
+
+  cluster_endpoint_public_access  = true
+  cluster_endpoint_private_access = false
+
+  cluster_addons = {
+    # coredns    = {}
+    kube-proxy = {}
+    vpc-cni    = {}
   }
-}
 
-resource "aws_lb" "main" {
-  name               = "random-character-ui"
-  internal           = false
-  load_balancer_type = "application"
-  security_groups    = [aws_security_group.load_balancer.id]
-  subnets            = data.aws_subnets.default.ids
-}
-
-resource "aws_lb_listener" "https" {
-  load_balancer_arn = aws_lb.main.arn
-  port              = 443
-  protocol          = "HTTPS"
-
-  certificate_arn   = data.aws_acm_certificate.random-character.arn
-
-  default_action {
-    type = "forward"
-    target_group_arn = aws_lb_target_group.main.arn
-  }
-}
-
-resource "aws_lb_target_group" "main" {
-  name     = "random-character-ui"
-  port     = 80
-  protocol = "HTTP"
-  vpc_id   = data.aws_vpc.default.id
-
-  health_check {
-    path                = "/"
-    interval            = 30
-    timeout             = 5
-    healthy_threshold   = 5
-    unhealthy_threshold = 3
-    matcher             = "200"
-  }
-}
-
-resource "aws_lb_target_group_attachment" "ec2_attachment" {
-  target_group_arn = aws_lb_target_group.main.arn
-  target_id        = aws_instance.random_character_ui.id
-  port             = 80
-}
-
-resource "aws_instance" "random_character_ui" {
-  ami = "ami-0343a21cd4b9d8ee8"
-  instance_type = "t2.micro"
-  key_name = "IdealProject.EC2.KeyPair"
-  vpc_security_group_ids = [aws_security_group.ec2.id]
-  subnet_id     = data.aws_subnets.default.ids[0]
-  iam_instance_profile = aws_iam_instance_profile.default_profile.name
-  user_data = file("./scripts/bootstrap.sh")
+  enable_cluster_creator_admin_permissions = true
 
   tags = {
-    Name = local.project_name
+    Environment = "dev"
   }
 }
 
-resource "aws_iam_instance_profile" "default_profile" {
-  name = "Default_EC2_Instance_Profile"
-  role = module.ec2_role.name
+# Launch template for EC2 nodes
+resource "aws_launch_template" "eks_node_lt" {
+  name_prefix   = "${local.project_name_short}-EKS-Node-"
+  image_id      = data.aws_ami.eks_node_ami.id
+  instance_type = "t3.medium"
+
+  iam_instance_profile {
+    name = aws_iam_instance_profile.eks_node.name
+  }
+
+  key_name = local.ssh_key_name
+
+  user_data = base64encode(templatefile("${path.module}/user_data.sh", {
+    cluster_name = local.cluster_name
+  }))
+
+  network_interfaces {
+    associate_public_ip_address = true
+    security_groups             = [aws_security_group.eks_node_sg.id]
+  }
+}
+
+resource "aws_iam_instance_profile" "eks_node" {
+  name = "${local.project_name_short}-EKS-Node-Profile"
+  role = module.eks_node_role.name
+}
+
+# Auto Scaling Group
+resource "aws_autoscaling_group" "eks_nodes" {
+  desired_capacity     = 2
+  max_size             = 3
+  min_size             = 1
+
+  vpc_zone_identifier  = module.vpc.public_subnets
+
+  launch_template {
+    id      = aws_launch_template.eks_node_lt.id
+    version = "$Latest"
+  }
+
+  tag {
+    key                 = "kubernetes.io/cluster/${local.cluster_name}"
+    value               = "owned"
+    propagate_at_launch = true
+  }
+}
+
+# TODO: Why it doesn't work automatically???
+# Add worker role to aws-auth
+resource "kubernetes_config_map" "aws_auth" {
+  metadata {
+    name      = "aws-auth"
+    namespace = "kube-system"
+  }
+
+  data = {
+    mapRoles = yamlencode([
+      {
+        rolearn  = module.eks_node_role.arn
+        username = "system:node:{{EC2PrivateDNSName}}"
+        groups   = [
+          "system:bootstrappers",
+          "system:nodes"
+        ]
+      }
+    ])
+  }
+
+  depends_on = [module.eks, aws_autoscaling_group.eks_nodes]
 }
 
 resource "aws_ecr_repository" "random_character_ui" {
@@ -81,4 +107,35 @@ resource "aws_ecr_repository" "random_character_ui" {
   }
 
   force_delete = true
+}
+
+data "kubernetes_service" "random_character_ui" {
+  depends_on = [ module.eks ]
+
+  metadata {
+    name      = "random-character-ui-service"
+    namespace = "default"
+  }
+}
+
+data "aws_lb" "random_character_ui" {
+  name = local.nlb_name
+}
+
+resource "aws_route53_record" "random_character_ui_route" {
+  zone_id = data.aws_route53_zone.main.id
+  name    = data.aws_route53_zone.main.name
+  type    = "A"
+
+  alias {
+    name                   = local.nlb_hostname
+    zone_id                = data.aws_lb.random_character_ui.zone_id
+    evaluate_target_health = false
+  }
+}
+
+locals {
+  nlb_hostname = data.kubernetes_service.random_character_ui.status[0].load_balancer[0].ingress[0].hostname
+  nlb_full_name = regex("^([^.]+)", local.nlb_hostname)[0]
+  nlb_name = substr(local.nlb_full_name, 0, 32)
 }
