@@ -36,7 +36,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v3
         with:
-          role-to-assume: arn:aws:iam::756244214202:role/RandomCharacter_GitHub_Access_Role
+          role-to-assume: arn:aws:iam::756244214202:role/RandomCharacter_GitHubRole
           aws-region: eu-west-1
 
       - name: Commit version bump
