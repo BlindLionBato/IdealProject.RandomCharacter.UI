@@ -1,8 +1,20 @@
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: random-character-ingress
-  namespace: default
+# tag
+# external-dns.alpha.kubernetes.io/hostname
+
+replicaCount: 3
+
+image:
+  repository: 756244214202.dkr.ecr.eu-west-1.amazonaws.com/random-character-ui
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: true
+  className: alb
   annotations:
     kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/scheme: internet-facing
@@ -12,16 +24,11 @@ metadata:
     alb.ingress.kubernetes.io/ssl-redirect: '443'
     alb.ingress.kubernetes.io/subnets: "RandomCharacter-public-eu-west-1a,RandomCharacter-public-eu-west-1b,RandomCharacter-public-eu-west-1c"
     external-dns.alpha.kubernetes.io/hostname: "dev.random-character.com"
-spec:
-  ingressClassName: alb
-  rules:
+  hosts:
     - host: dev.random-character.org
-      http:
-        paths:
-          - path: /my-web-app
-            pathType: Prefix
-            backend:
-              service:
-                name: random-character-ui
-                port:
-                  number: 8080
+      paths:
+        - path: /my-web-app
+          pathType: Prefix
+  tls: []
+env:
+  BASE_PATH: "/my-web-app"
